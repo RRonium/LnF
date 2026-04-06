@@ -3,7 +3,7 @@
 #include <stdlib.h>
 #include <string.h>
 
-#define TABLE_SIZE 10
+#define TABLE_SIZE 101
 #define PRIME 101
 
 typedef struct Item {
