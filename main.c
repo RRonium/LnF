@@ -185,8 +185,8 @@ void addItemUI() {
 }
 
 void viewItemsUI() {
-    clear();
-    draw_box(1, 1, 22, 115, "CURRENT LOST & FOUND DATABASE");
+    clear(); 
+    draw_box(1, 1, 35, 115, "CURRENT LOST & FOUND DATABASE");
     attron(A_BOLD);
     mvprintw(3, 3, "%-10s | %-15s | %-12s | %-15s | %-30s", "ID", "Name", "Date", "Location", "Description");
     attroff(A_BOLD);
@@ -194,14 +194,14 @@ void viewItemsUI() {
     int row = 5;
     for (int i = 0; i < TABLE_SIZE; i++) {
         Item* temp = hashTable[i];
-        while (temp) {
-            if(row < 20) { 
+        while (temp) { 
+            if(row < 33) { 
                 mvprintw(row++, 3, "%-10s | %-15s | %-12s | %-15s | %-30.30s...", temp->id, temp->name, temp->date, temp->location, temp->description);
             }
             temp = temp->next;
         }
     }
-    mvprintw(20, 3, "Press any key to return...");
+    mvprintw(row + 1, 3, "Press any key to return...");
     refresh(); getch();
 }
 
