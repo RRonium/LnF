@@ -2,6 +2,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <time.h>
 
 #define TABLE_SIZE 101
 #define PRIME 101
@@ -73,6 +74,28 @@ int levenshtein(char* s1, char* s2) {
     return matrix[s1len][s2len];
 }
 
+int isFutureDate(char* dateStr) {
+    int d, m, y;
+    if (sscanf(dateStr, "%d/%d/%d", &d, &m, &y) != 3) return 1;
+    time_t t = time(NULL);
+    struct tm *now = localtime(&t);
+    int cur_d = now->tm_mday;
+    int cur_m = now->tm_mon + 1;
+    int cur_y = now->tm_year + 1900;
+    if (y > cur_y) return 1;
+    if (y == cur_y && m > cur_m) return 1;
+    if (y == cur_y && m == cur_m && d > cur_d) return 1;
+    return 0;
+}
+
+int isValidCategory(char* cat) {
+    char* valid[] = {"Stationary", "Bags", "Devices", "Accessories"};
+    for(int i = 0; i < 4; i++) {
+        if (strcasecmp(cat, valid[i]) == 0) return 1;
+    }
+    return 0;
+}
+
 void saveToFile() {
     FILE *file = fopen("database.txt", "w");
     if (!file) return;
@@ -116,16 +139,34 @@ void draw_box(int y, int x, int h, int w, char* title) {
 
 void addItemUI() {
     clear();
-    draw_box(1, 2, 18, 70, "LOG NEW FOUND ITEM");
+    draw_box(1, 2, 20, 75, "LOG NEW FOUND ITEM");
     Item* newItem = (Item*)malloc(sizeof(Item));
     
     mvprintw(3, 4, "Available: Stationary, Bags, Devices, Accessories");
     echo();
-    mvprintw(5, 4, "Category: "); getnstr(newItem->category, 29);
+    
+    mvprintw(5, 4, "Category: "); 
+    getnstr(newItem->category, 29);
+    if (!isValidCategory(newItem->category)) {
+        attron(COLOR_PAIR(1) | A_BOLD);
+        mvprintw(12, 4, "ERROR: Invalid Category! Returning to menu...");
+        attroff(COLOR_PAIR(1) | A_BOLD);
+        refresh(); getch(); free(newItem); return;
+    }
+
     mvprintw(6, 4, "Item Name: "); getnstr(newItem->name, 49);
     mvprintw(7, 4, "Description: "); getnstr(newItem->description, 99);
     mvprintw(8, 4, "Location: "); getnstr(newItem->location, 49);
-    mvprintw(9, 4, "Date (DD/MM/YYYY): "); getnstr(newItem->date, 14);
+    
+    mvprintw(9, 4, "Date (DD/MM/YYYY): "); 
+    getnstr(newItem->date, 14);
+    if (isFutureDate(newItem->date)) {
+        attron(COLOR_PAIR(1) | A_BOLD);
+        mvprintw(12, 4, "ERROR: Future Date or Invalid Format! Returning to menu...");
+        attroff(COLOR_PAIR(1) | A_BOLD);
+        refresh(); getch(); free(newItem); return;
+    }
+    
     mvprintw(10, 4, "Secret Detail: "); getnstr(newItem->secret, 49);
     noecho();
 
@@ -136,43 +177,53 @@ void addItemUI() {
     saveToFile();
 
     attron(COLOR_PAIR(2) | A_BOLD);
-    mvprintw(12, 4, "SUCCESS! Unique ID: %s", newItem->id);
+    mvprintw(13, 4, "SUCCESS! Unique ID: %s", newItem->id);
     attroff(COLOR_PAIR(2) | A_BOLD);
-    mvprintw(14, 4, "Press any key to return...");
+    mvprintw(15, 4, "Press any key to return...");
     refresh();
     getch();
 }
 
 void viewItemsUI() {
     clear();
-    draw_box(1, 1, 22, 110, "CURRENT LOST & FOUND DATABASE");
+    draw_box(1, 1, 22, 115, "CURRENT LOST & FOUND DATABASE");
     attron(A_BOLD);
-    mvprintw(3, 3, "%-10s | %-15s | %-10s | %-15s | %-30s", "ID", "Name", "Date", "Location", "Description");
+    mvprintw(3, 3, "%-10s | %-15s | %-12s | %-15s | %-30s", "ID", "Name", "Date", "Location", "Description");
     attroff(A_BOLD);
-    mvprintw(4, 3, "-------------------------------------------------------------------------------------------------------");
-    
+    mvprintw(4, 3, "---------------------------------------------------------------------------------------------------------");
     int row = 5;
     for (int i = 0; i < TABLE_SIZE; i++) {
         Item* temp = hashTable[i];
         while (temp) {
             if(row < 20) { 
-                mvprintw(row++, 3, "%-10s | %-15s | %-10s | %-15s | %-30.30s...", temp->id, temp->name, temp->date, temp->location, temp->description);
+                mvprintw(row++, 3, "%-10s | %-15s | %-12s | %-15s | %-30.30s...", temp->id, temp->name, temp->date, temp->location, temp->description);
             }
             temp = temp->next;
         }
     }
     mvprintw(20, 3, "Press any key to return...");
-    refresh();
-    getch();
+    refresh(); getch();
 }
 
 void searchItemUI() {
     clear();
     char cat[30], query[50];
-    draw_box(1, 2, 10, 70, "SEARCH / RECLAIM");
+    draw_box(1, 2, 12, 75, "SEARCH / RECLAIM");
+    
+    mvprintw(3, 4, "Available: Stationary, Bags, Devices, Accessories");
     echo();
-    mvprintw(3, 4, "Category: "); getnstr(cat, 29);
-    mvprintw(4, 4, "Query: "); getnstr(query, 49); 
+    mvprintw(5, 4, "Category: "); 
+    getnstr(cat, 29);
+    
+    if (!isValidCategory(cat)) {
+        attron(COLOR_PAIR(1) | A_BOLD);
+        mvprintw(8, 4, "ERROR: Invalid Category! Returning to menu...");
+        attroff(COLOR_PAIR(1) | A_BOLD);
+        refresh(); getch(); return;
+    }
+
+    mvprintw(6, 4, "Query (Name): "); 
+    getnstr(query, 49); 
     noecho();
 
     Item* matches[10];
@@ -180,7 +231,7 @@ void searchItemUI() {
     for (int i = 0; i < TABLE_SIZE; i++) {
         Item* curr = hashTable[i];
         while (curr) {
-            if (strcmp(curr->category, cat) == 0 && (strcmp(curr->name, query) == 0 || rabinKarp(query, curr->name) || levenshtein(query, curr->name) <= 2)) {
+            if (strcasecmp(curr->category, cat) == 0 && (strcasecmp(curr->name, query) == 0 || rabinKarp(query, curr->name) || levenshtein(query, curr->name) <= 2)) {
                 if (count < 10) matches[count++] = curr;
             }
             curr = curr->next;
@@ -188,29 +239,27 @@ void searchItemUI() {
     }
 
     if (count == 0) {
-        mvprintw(6, 4, "No matches found. Press any key...");
+        mvprintw(8, 4, "No matches found. Press any key...");
         refresh(); getch(); return;
     }
 
     clear();
-    draw_box(1, 2, 20, 100, "RESULTS FOUND");
+    draw_box(1, 2, 22, 110, "RESULTS FOUND");
     attron(A_BOLD);
-    mvprintw(2, 4, "%-3s %-10s | %-15s | %-10s | %-30s", "#", "ID", "Name", "Date", "Description");
+    mvprintw(2, 4, "%-3s %-10s | %-15s | %-12s | %-35s", "#", "ID", "Name", "Date", "Description");
     attroff(A_BOLD);
-    
     for(int i=0; i<count; i++) {
-        mvprintw(4+i, 4, "[%d] %-10s | %-15s | %-10s | %-30.30s...", i+1, matches[i]->id, matches[i]->name, matches[i]->date, matches[i]->description);
+        mvprintw(4+i, 4, "[%d] %-10s | %-15s | %-12s | %-35.35s...", i+1, matches[i]->id, matches[i]->name, matches[i]->date, matches[i]->description);
     }
     
-    mvprintw(15, 4, "Select index to reclaim (0 to cancel): ");
+    mvprintw(16, 4, "Select index to reclaim (0 to cancel): ");
     echo(); char choiceStr[5]; getnstr(choiceStr, 4); noecho();
     int choice = atoi(choiceStr);
 
     if (choice > 0 && choice <= count) {
         char checkID[20], checkSec[50];
-        mvprintw(16, 4, "Confirm ID: "); echo(); getnstr(checkID, 19);
-        mvprintw(17, 4, "Secret Detail: "); getnstr(checkSec, 49); noecho();
-
+        mvprintw(17, 4, "Confirm ID: "); echo(); getnstr(checkID, 19);
+        mvprintw(18, 4, "Secret Detail: "); getnstr(checkSec, 49); noecho();
         Item* target = matches[choice-1];
         if (strcmp(target->id, checkID) == 0 && levenshtein(checkSec, target->secret) <= 3) {
             int idx = calculateHash(target->name);
@@ -220,7 +269,7 @@ void searchItemUI() {
                     if (!prev) hashTable[idx] = del->next; else prev->next = del->next;
                     free(del); saveToFile();
                     attron(COLOR_PAIR(2) | A_BOLD);
-                    mvprintw(18, 4, "RECLAIMED SUCCESSFULLY!");
+                    mvprintw(19, 4, "RECLAIMED SUCCESSFULLY!");
                     attroff(COLOR_PAIR(2) | A_BOLD);
                     break;
                 }
@@ -228,7 +277,7 @@ void searchItemUI() {
             }
         } else {
             attron(COLOR_PAIR(1) | A_BOLD);
-            mvprintw(18, 4, "VERIFICATION FAILED!");
+            mvprintw(19, 4, "VERIFICATION FAILED!");
             attroff(COLOR_PAIR(1) | A_BOLD);
         }
     }
@@ -240,27 +289,21 @@ int main() {
     init_pair(1, COLOR_RED, COLOR_BLACK);
     init_pair(2, COLOR_GREEN, COLOR_BLACK);
     init_pair(3, COLOR_CYAN, COLOR_BLACK);
-    
     loadFromFile();
-
     char *choices[] = {"Add Found Item", "Search / Reclaim", "View All Items", "Exit"};
     int highlight = 0;
-
     while (1) {
         clear();
         attron(COLOR_PAIR(3));
         draw_box(2, 5, 10, 45, "LOST & FOUND SYSTEM");
         attroff(COLOR_PAIR(3));
-        
         for(int i = 0; i < 4; i++) {
             if(i == highlight) attron(A_REVERSE | A_BOLD);
             mvprintw(4 + i, 12, " [%s] ", choices[i]);
             attroff(A_REVERSE | A_BOLD);
         }
-        
         mvprintw(13, 5, "Use ARROWS to navigate, ENTER to select.");
         refresh();
-
         int c = getch();
         if (c == KEY_UP && highlight > 0) highlight--;
         else if (c == KEY_DOWN && highlight < 3) highlight++;
